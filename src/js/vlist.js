@@ -42,7 +42,7 @@
     VList.prototype._updateCounter = 0;
     VList.prototype._lastRenderScrollTop = 0;
     VList.prototype._lastCleanedTime = 0;
-    VList.prototype._scrollTimerId = null;
+    VList.prototype._cleanViewportTimerId = null;
 
     VList.prototype._renderer = function (renderer) {
         if (!arguments.length) {
@@ -115,15 +115,7 @@
 
     VList.prototype._onScroll = function (e) {
         e.preventDefault();
-        if (this._scrollTimerId === null) {
-            this._scrollTimerId = setTimeout(function () {
-                if (Date.now() - this._lastCleanedTime > 100) {
-                    this._cleanViewport();
-                    this._lastCleanedTime = Date.now();
-                }
-                this._scrollTimerId = null;
-            }.bind(this), 300);
-        }
+        this._requestViewportClean();
 
         var scrollTop = this._container.scrollTop;
         if (!this._lastRenderScrollTop || Math.abs(scrollTop - this._lastRenderScrollTop) > this._scrollCacheSize) {
@@ -152,6 +144,18 @@
             }
 
             this._container.appendChild(fragment);
+        }
+    };
+    
+    VList.prototype._requestViewportClean = function () {
+        if (this._cleanViewportTimerId === null) {
+            this._cleanViewportTimerId = setTimeout(function () {
+                if (Date.now() - this._lastCleanedTime > 100) {
+                    this._cleanViewport();
+                    this._lastCleanedTime = Date.now();
+                }
+                this._cleanViewportTimerId = null;
+            }.bind(this), 300);
         }
     };
 
