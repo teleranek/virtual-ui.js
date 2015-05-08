@@ -161,7 +161,7 @@
      */
     TreeNode.prototype.getNodeCount = function () {
         var i = 0;
-        this.accept(function(node){
+        this.accept(function (node) {
             ++i;
             return true;
         }, false);
@@ -175,6 +175,7 @@
     function TreeNodeNamed(id) {
         this.id = id;
     }
+
     TreeNodeNamed.prototype = Object.create(TreeNode.prototype);
     TreeNodeNamed.prototype.id = null;
 
@@ -201,7 +202,7 @@
         this._root.parent = this;
 
         VList.call(this, container, renderer, 0, 0);
-        
+
         this._container.classList.add('vtree');
 
         this._rowStyle = nodeStyle ? nodeStyle : VTree.DEFAULT_ROW_STYLE;
@@ -413,7 +414,7 @@
     /** override */
     VTree.prototype.endUpdate = function () {
         if (--this._updateCounter === 0) {
-            this.invalidate();
+            this.requestInvalidation();
         }
     };
 
@@ -424,18 +425,21 @@
     };
 
     VTree.prototype.requestInvalidation = function (immediate) {
-        if (this._invalidationRequestTimerId !== null) {
-            clearTimeout(this._invalidationRequestTimerId);
-            this._invalidationRequestTimerId = null;
-        }
-
-        this._invalidationRequestTimerId = setTimeout(function () {
+        if (immediate) {
             if (!this._updateCounter) {
                 this.invalidate();
             }
+        } else {
+            if (this._invalidationRequestTimerId !== null) {
+                clearTimeout(this._invalidationRequestTimerId);
+                this._invalidationRequestTimerId = null;
+            }
 
-            this._invalidationRequestTimerId = null;
-        }.bind(this), 25);
+            this._invalidationRequestTimerId = setTimeout(function () {
+                this.requestInvalidation(true);
+                this._invalidationRequestTimerId = null;
+            }.bind(this), 25);
+        }
     };
 
     VTree.prototype.handleChange = function (change, node) {
@@ -743,7 +747,7 @@
 
     VTree.prototype._updateRowCount = function () {
         var i = 0;
-        this._root.acceptChildren(function(node){
+        this._root.acceptChildren(function (node) {
             ++i;
             return true;
         }, true);
@@ -753,7 +757,7 @@
     VTree.prototype._getNodeByIdx = function (idx, visibleOnly) {
         var i = 0;
         var nodeRef = null;
-        this._root.acceptChildren(function(node){
+        this._root.acceptChildren(function (node) {
             ++i;
             if (i == idx) {
                 nodeRef = node;
@@ -845,7 +849,7 @@
                 this.insertNodeAfter(node, this._dragNode);
                 this._dragNode = null;
                 this.endUpdate();
-            } else if (this._dropInsideAllowed(node, e)){
+            } else if (this._dropInsideAllowed(node, e)) {
                 this.beginUpdate();
                 this.removeNode(this._dragNode);
                 if (this._dropCallback) {
@@ -868,7 +872,7 @@
         var res = e.offsetY <= this._freeHeight && node !== this._dragNode.next;
         if (res && this._dropAllowedCallback) {
             res = node !== this._root && this._dropAllowedCallback(node.parent, node, node.previous ? node.previous : null, this._dragNode) ||
-                node === this._root && this._dropInsideAllowed(node, e);
+            node === this._root && this._dropInsideAllowed(node, e);
         }
         return res;
     };
