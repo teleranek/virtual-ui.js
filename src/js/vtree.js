@@ -408,6 +408,8 @@
     VTree.prototype._dropCallback = null;
     VTree.prototype._clickCallback = null;
 
+    VTree.prototype._invalidationRequestTimerId = null;
+
     /** override */
     VTree.prototype.endUpdate = function () {
         if (--this._updateCounter === 0) {
@@ -418,18 +420,27 @@
     /** override */
     VTree.prototype.refresh = function () {
         this._initComputedVals();
-        this.requestInvalidation();
+        this.requestInvalidation(true);
     };
 
-    VTree.prototype.requestInvalidation = function () {
-        if (!this._updateCounter) {
-            this.invalidate();
+    VTree.prototype.requestInvalidation = function (immediate) {
+        if (this._invalidationRequestTimerId !== null) {
+            clearTimeout(this._invalidationRequestTimerId);
+            this._invalidationRequestTimerId = null;
         }
+
+        this._invalidationRequestTimerId = setTimeout(function () {
+            if (!this._updateCounter) {
+                this.invalidate();
+            }
+
+            this._invalidationRequestTimerId = null;
+        }.bind(this), 25);
     };
 
     VTree.prototype.handleChange = function (change, node) {
         if (change == TreeNode._Change.ExpandedSet || change == TreeNode._Change.ExpandedRemoved) {
-            this.requestInvalidation();
+            this.requestInvalidation(true);
         }
     };
 
@@ -540,7 +551,7 @@
         this._root = new TreeNode();
         this._root.expanded = true;
         this._root.parent = this;
-        this.requestInvalidation();
+        this.requestInvalidation(true);
     };
 
     VTree.prototype.acceptChildren = function (visitor, visibleOnly, reverse, any) {
