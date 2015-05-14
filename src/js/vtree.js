@@ -786,6 +786,9 @@
 
     VTree.prototype._nodeDragStart = function (node, e) {
         this._dragNode = node;
+
+        // Setup some dummy drag-data to ensure dragging
+        e.dataTransfer.setData('text/plain', 'some_dummy_data');
     };
 
     VTree.prototype._nodeDragEnter = function (node, e) {
