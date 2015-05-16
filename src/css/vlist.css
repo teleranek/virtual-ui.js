@@ -1,18 +1,18 @@
 .vlist {
-    .vscroller {
-        position: absolute;
-        opacity: 0;
-        top: 0px;
-        left: 0px;
-        width: 1px;
-    }
+}
+.vlist .vscroller {
+    position: absolute;
+    opacity: 0;
+    top: 0px;
+    left: 0px;
+    width: 1px;
+}
     
-    .vrow {
-        position: absolute;
-        width: 100%;
-        height: 30px;
-        max-height: 30px;
-        line-height: 30px;
-        vertical-align: middle;
-    }
+.vlist .vrow {
+    position: absolute;
+    width: 100%;
+    height: 30px;
+    max-height: 30px;
+    line-height: 30px;
+    vertical-align: middle;
 }

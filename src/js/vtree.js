@@ -793,18 +793,21 @@
 
     VTree.prototype._nodeDragEnter = function (node, e) {
         e.preventDefault();
+        e.stopPropagation();
         this._updateMarks(node, e, true);
         return false;
     };
 
     VTree.prototype._nodeDragOver = function (node, e) {
         e.preventDefault();
+        e.stopPropagation();
         this._updateMarks(node, e, false);
         return false;
     };
 
     VTree.prototype._nodeDragLeave = function (node, e) {
         e.preventDefault();
+        e.stopPropagation();
         if (this._dropHereAllowed(node)) {
             if (!e.currentTarget._specCounter || e.currentTarget._specCounter <= 1) {
                 e.currentTarget._specCounter = 0;
@@ -819,6 +822,8 @@
     };
 
     VTree.prototype._nodeDrop = function (node, e) {
+        e.preventDefault();
+        e.stopPropagation();
         e.currentTarget._specCounter = 0;
         if (this._dropHereAllowed(node)) {
             e.currentTarget.classList.remove(this._insertIntoStyle);
@@ -863,7 +868,6 @@
                 this.endUpdate();
             }
         }
-        e.stopPropagation();
         return false;
     };
 
@@ -872,7 +876,7 @@
     };
 
     VTree.prototype._dropUpperAllowed = function (node, e) {
-        var res = e.offsetY <= this._freeHeight && node !== this._dragNode.next;
+        var res = e.layerY <= this._freeHeight && node !== this._dragNode.next;
         if (res && this._dropAllowedCallback) {
             res = node !== this._root && this._dropAllowedCallback(node.parent, node, node.previous ? node.previous : null, this._dragNode) ||
             node === this._root && this._dropInsideAllowed(node, e);
@@ -881,7 +885,7 @@
     };
 
     VTree.prototype._dropLowerAllowed = function (node, e) {
-        var res = e.offsetY >= this._rowHeight - this._freeHeight && !node.expanded
+        var res = e.layerY >= this._rowHeight - this._freeHeight && !node.expanded
             && node !== this._root && this._dragNode !== node.next;
 
         if (res && this._dropAllowedCallback) {
