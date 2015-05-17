@@ -411,6 +411,8 @@
 
     VTree.prototype._invalidationRequestTimerId = null;
 
+    VTree.prototype._updateMarksTimerId = null;
+
     /** override */
     VTree.prototype.endUpdate = function () {
         if (--this._updateCounter === 0) {
@@ -608,6 +610,7 @@
                 row.addEventListener('dragleave', this._nodeDragLeave.bind(this, node));
                 row.addEventListener('drop', this._nodeDrop.bind(this, node));
                 row._specCounter = 0;
+                row._hasStyle = false;
                 this._renderer(node, row);
                 fragment.appendChild(row);
             }
@@ -794,21 +797,31 @@
     VTree.prototype._nodeDragEnter = function (node, e) {
         e.preventDefault();
         e.stopPropagation();
-        this._updateMarks(node, e, true);
+        if (this._updateMarksTimerId) {
+            clearTimeout(this._updateMarksTimerId);
+        }
+        this._updateMarksTimerId = setTimeout(function (node, row, offsetY) {
+            this._updateMarks(node, row, offsetY, true);
+        }.bind(this, node, e.currentTarget, e.layerY), 25);
         return false;
     };
 
     VTree.prototype._nodeDragOver = function (node, e) {
         e.preventDefault();
         e.stopPropagation();
-        this._updateMarks(node, e, false);
+        if (this._updateMarksTimerId) {
+            clearTimeout(this._updateMarksTimerId);
+        }
+        this._updateMarksTimerId = setTimeout(function (node, row, offsetY) {
+            this._updateMarks(node, row, offsetY, false);
+        }.bind(this, node, e.currentTarget, e.layerY), 25);
         return false;
     };
 
     VTree.prototype._nodeDragLeave = function (node, e) {
         e.preventDefault();
         e.stopPropagation();
-        if (this._dropHereAllowed(node)) {
+        if (e.currentTarget._hasStyle) {
             if (!e.currentTarget._specCounter || e.currentTarget._specCounter <= 1) {
                 e.currentTarget._specCounter = 0;
                 e.currentTarget.classList.remove(this._insertIntoStyle);
@@ -824,13 +837,16 @@
     VTree.prototype._nodeDrop = function (node, e) {
         e.preventDefault();
         e.stopPropagation();
-        e.currentTarget._specCounter = 0;
+        var row = e.currentTarget;
+        var offsetY = e.layerY;
+        row._specCounter = 0;
         if (this._dropHereAllowed(node)) {
-            e.currentTarget.classList.remove(this._insertIntoStyle);
-            this._rowRemoveSep(e.currentTarget, VTree.LOWER_SEP_ID);
-            this._rowRemoveSep(e.currentTarget, VTree.UPPER_SEP_ID);
+            row.classList.remove(this._insertIntoStyle);
+            this._rowRemoveSep(row, VTree.LOWER_SEP_ID);
+            this._rowRemoveSep(row, VTree.UPPER_SEP_ID);
+            row._hasStyle = false;
 
-            if (this._dropUpperAllowed(node, e)) {
+            if (this._dropUpperAllowed(node, offsetY)) {
                 this.beginUpdate();
                 this.removeNode(this._dragNode);
                 if (node !== this._root) {
@@ -848,7 +864,7 @@
                 }
                 this._dragNode = null;
                 this.endUpdate();
-            } else if (this._dropLowerAllowed(node, e)) {
+            } else if (this._dropLowerAllowed(node, offsetY)) {
                 this.beginUpdate();
                 this.removeNode(this._dragNode);
                 if (this._dropCallback) {
@@ -857,7 +873,7 @@
                 this.insertNodeAfter(node, this._dragNode);
                 this._dragNode = null;
                 this.endUpdate();
-            } else if (this._dropInsideAllowed(node, e)) {
+            } else if (this._dropInsideAllowed(node)) {
                 this.beginUpdate();
                 this.removeNode(this._dragNode);
                 if (this._dropCallback) {
@@ -875,17 +891,17 @@
         return this._dragNode && this._dragNode !== node && !this._nodeHasSomeParent(node, this._dragNode);
     };
 
-    VTree.prototype._dropUpperAllowed = function (node, e) {
-        var res = e.layerY <= this._freeHeight && node !== this._dragNode.next;
+    VTree.prototype._dropUpperAllowed = function (node, offsetY) {
+        var res = offsetY <= this._freeHeight && node !== this._dragNode.next;
         if (res && this._dropAllowedCallback) {
             res = node !== this._root && this._dropAllowedCallback(node.parent, node, node.previous ? node.previous : null, this._dragNode) ||
-            node === this._root && this._dropInsideAllowed(node, e);
+            node === this._root && this._dropInsideAllowed(node);
         }
         return res;
     };
 
-    VTree.prototype._dropLowerAllowed = function (node, e) {
-        var res = e.layerY >= this._rowHeight - this._freeHeight && !node.expanded
+    VTree.prototype._dropLowerAllowed = function (node, offsetY) {
+        var res = offsetY >= this._rowHeight - this._freeHeight && !node.expanded
             && node !== this._root && this._dragNode !== node.next;
 
         if (res && this._dropAllowedCallback) {
@@ -894,7 +910,7 @@
         return res;
     };
 
-    VTree.prototype._dropInsideAllowed = function (node, e) {
+    VTree.prototype._dropInsideAllowed = function (node) {
         var res = !(this._dragNode.parent === node && node.lastChild === this._dragNode);
         if (res && this._dropAllowedCallback) {
             res = this._dropAllowedCallback(node, null, null, this._dragNode);
@@ -902,41 +918,41 @@
         return res;
     };
 
-    VTree.prototype._drawUpperSeparator = function (node, e) {
+    VTree.prototype._drawUpperSeparator = function (node, row) {
         var paddingLevel = node === this._root ? 0 : node.getNestLevel() - 1;
-        this._rowAddSep(e.currentTarget, VTree.UPPER_SEP_ID, paddingLevel);
+        this._rowAddSep(row, VTree.UPPER_SEP_ID, paddingLevel);
     };
 
-    VTree.prototype._drawLowerSeparator = function (node, e) {
+    VTree.prototype._drawLowerSeparator = function (node, row) {
         var paddingLevel = node.getNestLevel() - 1;
-        this._rowAddSep(e.currentTarget, VTree.LOWER_SEP_ID, paddingLevel);
+        this._rowAddSep(row, VTree.LOWER_SEP_ID, paddingLevel);
     };
 
-    VTree.prototype._updateMarks = function (node, e, updateCounter) {
-        var row = e.currentTarget;
+    VTree.prototype._updateMarks = function (node, row, offsetY, updateCounter) {
         if (this._dropHereAllowed(node)) {
-            if (this._dropUpperAllowed(node, e)) {
+            if (this._dropUpperAllowed(node, offsetY)) {
                 if (!this._rowHasSep(row, VTree.UPPER_SEP_ID)) {
                     this._rowRemoveSep(row, VTree.LOWER_SEP_ID);
 
                     row._specCounter = 0;
                     row.classList.remove(this._insertIntoStyle);
 
-                    this._drawUpperSeparator(node, e);
+                    this._drawUpperSeparator(node, row);
                 }
-            } else if (this._dropLowerAllowed(node, e)) {
+            } else if (this._dropLowerAllowed(node, offsetY)) {
                 if (!this._rowHasSep(row, VTree.LOWER_SEP_ID)) {
                     this._rowRemoveSep(row, VTree.UPPER_SEP_ID);
 
                     row._specCounter = 0;
                     row.classList.remove(this._insertIntoStyle);
 
-                    this._drawLowerSeparator(node, e);
+                    this._drawLowerSeparator(node, row);
                 }
-            } else if (node !== this._root && this._dropInsideAllowed(node, e)) {
+            } else if (node !== this._root && this._dropInsideAllowed(node)) {
                 this._rowRemoveSep(row, VTree.LOWER_SEP_ID);
                 this._rowRemoveSep(row, VTree.UPPER_SEP_ID);
                 row.classList.add(this._insertIntoStyle);
+                row._hasStyle = true;
                 if (updateCounter) {
                     if (!row._specCounter) {
                         row._specCounter = 1;
@@ -966,6 +982,7 @@
         } else {
             row.appendChild(sep);
         }
+        row._hasStyle = true;
     };
 
     VTree.prototype._rowRemoveSep = function (row, sepId) {
