@@ -244,6 +244,8 @@
         if (clickCallback) {
             this._clickCallback = clickCallback;
         }
+
+        this._aScroll = new AutoScroll(this._container, 200, 10, null, 7);
     }
 
     /**
@@ -412,6 +414,13 @@
     VTree.prototype._invalidationRequestTimerId = null;
 
     VTree.prototype._updateMarksTimerId = null;
+
+    /**
+     * Maintain reference to AutoScroll functional
+     * @type {AutoScroll}
+     * @private
+     */
+    VTree.prototype._aScroll = null;
 
     /** override */
     VTree.prototype.endUpdate = function () {
@@ -792,6 +801,8 @@
 
         // Setup some dummy drag-data to ensure dragging
         e.dataTransfer.setData('text/plain', 'some_dummy_data');
+
+        this._aScroll.enableAScroll();
     };
 
     VTree.prototype._nodeDragEnter = function (node, e) {
@@ -815,6 +826,7 @@
         this._updateMarksTimerId = setTimeout(function (node, row, offsetY) {
             this._updateMarks(node, row, offsetY, false);
         }.bind(this, node, e.currentTarget, e.layerY), 25);
+        this._aScroll.takeOnOffAction(e);
         return false;
     };
 
@@ -827,6 +839,7 @@
                 e.currentTarget.classList.remove(this._insertIntoStyle);
                 this._rowRemoveSep(e.currentTarget, VTree.LOWER_SEP_ID);
                 this._rowRemoveSep(e.currentTarget, VTree.UPPER_SEP_ID);
+                this._aScroll.takeOnOffAction(e);
             } else {
                 --e.currentTarget._specCounter;
             }
@@ -884,6 +897,8 @@
                 this.endUpdate();
             }
         }
+
+        this._aScroll.disableAScroll();
         return false;
     };
 
