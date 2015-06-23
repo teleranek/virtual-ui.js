@@ -415,6 +415,13 @@
 
     VTree.prototype._updateMarksTimerId = null;
 
+    /**
+     * Maintain reference to AutoScroll functional
+     * @type {AutoScroll}
+     * @private
+     */
+    VTree.prototype._aScroll = null;
+
     /** override */
     VTree.prototype.endUpdate = function () {
         if (--this._updateCounter === 0) {
