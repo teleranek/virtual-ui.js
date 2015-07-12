@@ -184,18 +184,39 @@
     // -----------------------------------------------------------------------------------------------------------------
     /**
      * Base Virtual Tree Class
-     * @param {Element} a HTML container for displaying the tree
-     * @param {Function(TreeNode, Element)} renderer to fill the tree node visible element with content
-     * @param {String} a tree node visible element CSS style name. If not passed, the default style name is used.
-     * @param {Function(Element)} renderer for the 'expand' span element
-     * @param {String} the 'expand' span element CSS style name. If not passed, the default style name is used.
+     * @param {Element} [container] a HTML container for displaying the tree
+     * @param {Function(TreeNode, Element)} [renderer] renderer to fill the tree node visible element with content
+     * @param {String} [nodeStyle] a tree node visible element CSS style name. If not passed, the default style name is used.
+     * @param {Function(Element)} [expandRenderer] renderer for the 'expand' span element
+     * @param {String} [expandStyle] the 'expand' span element CSS style name. If not passed, the default style name is used.
+     * @param {Function(Element, Number)} [separatorRenderer] renderer for the separator line between rows
+     * for marking a place for inserting dragged row.
+     * Accepts separator HTML element and the tree deep level for inserted element
+     * @param {Number} [freeHeight] the height of the zone at the bottom or at the top of each tree row
+     * to be interpreted for inserting a dragged row below or above the current row.
+     * @param {String} [insertIntoStyle] a CSS style name to be added to a row into which anoither row is being dragged.
+     * If not passed, the default style name is used.
+     * @param {Function(TreeNode, TreeNode, TreeNode, TreeNode)} [dropAllowedCallback] callback being used to check if
+     * dropping of a dragged row is allowed to the specific place. Accepts perent node (to drop inside), next node,
+     * previous node, and dragged node. Next and previous node may be null.
+     * @param {Function(TreeNode, TreeNode, TreeNode, TreeNode)} [dropCallback] callback being used when
+     * dropping of a dragged row into the specific place. Accepts perent node (to drop inside), next node,
+     * previous node, and dragged node. Next and previous node may be null.
+     * @param {Function(TreeNode)} [clickCallback] callback being used when row is clicked
+     * @param {String} [upSeparatorSpan1Style] a style name of the left part of upper row separator to indicate drop place
+     * @param {String} [upSeparatorSpan2Style] a style name of the right part of upper row separator to indicate drop place
+     * @param {String} [downSeparatorSpan1Style] a style name of the left part of lower row separator to indicate drop place
+     * @param {String} [downSeparatorSpan2Style] a style name of the right part of lower row separator to indicate drop place
+     * @param {Boolean} [putLastChildWhenInside] If true, when a node is dropped into another node,
+     * put the dropped node as the last child of the parent node, otherwise (false or null) put as the first child.
      * @class VTree
      * @constructor
      */
     function VTree(container, renderer, nodeStyle, expandRenderer, expandStyle,
                    separatorRenderer, freeHeight, insertIntoStyle,
                    dropAllowedCallback, dropCallback, clickCallback,
-                   upSeparatorSpan1Style, upSeparatorSpan2Style, downSeparatorSpan1Style, downSeparatorSpan2Style) {
+                   upSeparatorSpan1Style, upSeparatorSpan2Style, downSeparatorSpan1Style, downSeparatorSpan2Style,
+                   putLastChildWhenInside) {
         // Note: initialization order is important here
         this._root = new TreeNode();
         this._root.expanded = true;
@@ -244,6 +265,8 @@
         if (clickCallback) {
             this._clickCallback = clickCallback;
         }
+
+        this._putLastChildWhenInside = !!putLastChildWhenInside;
 
         this._aScroll = new AutoScroll(this._container, 200, 10, null, 7);
     }
@@ -410,6 +433,14 @@
     VTree.prototype._dropAllowedCallback = null;
     VTree.prototype._dropCallback = null;
     VTree.prototype._clickCallback = null;
+
+    /**
+     * If true, when a node is dropped into another node, put the dropped node as the last child of the parent node,
+     * otherwise (false) put as the first child. The default value is false.
+     * @type {Boolean}
+     * @private
+     */
+    VTree.prototype._putLastChildWhenInside = false;
 
     VTree.prototype._invalidationRequestTimerId = null;
 
@@ -892,7 +923,11 @@
                 if (this._dropCallback) {
                     this._dropCallback(node, null, null, this._dragNode);
                 }
-                this.appendNode(node, this._dragNode);
+                if (this._putLastChildWhenInside) {
+                    this.appendNode(node, this._dragNode);
+                } else {
+                    this.prependNode(node, this._dragNode);
+                }
                 this._dragNode = null;
                 this.endUpdate();
             }
