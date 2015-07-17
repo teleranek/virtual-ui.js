@@ -821,8 +821,10 @@
 
     VTree.prototype._nodeClick = function (node, e) {
         if ((node.expanded || node.firstChild) && (e.target.id === VTree.COLLAPSE_ID || e.target.id === VTree.EXPAND_ID)) {
+            e.stopPropagation();
             node.handleExpand(e);
         } else if (this._clickCallback) {
+            e.stopPropagation();
             this._clickCallback(node);
         }
     };
