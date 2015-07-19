@@ -423,7 +423,7 @@
     VTree.prototype._containerWidth = 0;
     VTree.prototype._expandedWidth = 0;
     VTree.prototype._expandStyle = null;
-    VTree.prototype._dragNode = null;
+    VTree.prototype._dragNodes = null;
     VTree.prototype._freeHeight = 0;
     VTree.prototype._upSeparatorStyle = null;
     VTree.prototype._downSeparatorStyle = null;
@@ -597,6 +597,7 @@
         this._root = new TreeNode();
         this._root.expanded = true;
         this._root.parent = this;
+        this._dragNodes = null;
         this.requestInvalidation(true);
     };
 
@@ -829,8 +830,16 @@
         }
     };
 
+    VTree.prototype.setDragNodes = function (dragNodes) {
+        if (dragNodes && dragNodes.length) {
+            this._dragNodes = dragNodes.slice();
+        }
+    };
+
     VTree.prototype._nodeDragStart = function (node, e) {
-        this._dragNode = node;
+        if (!this._dragNodes) {
+            this._dragNodes = [node];
+        }
 
         // Setup some dummy drag-data to ensure dragging
         e.dataTransfer.setData('text/plain', 'some_dummy_data');
@@ -892,80 +901,116 @@
             this._rowRemoveSep(row, VTree.UPPER_SEP_ID);
             row._hasStyle = false;
 
-            if (this._dropUpperAllowed(node, offsetY)) {
+            var dragNodesAllowed = []; // Assumed to be filled for insertion from top (idx = 0) to bottom
+            if (this._dropUpperAllowed(node, offsetY, dragNodesAllowed)) {
+                // If we don't have _dropAllowedCallback, dragNodesAllowed is not filled, and we should init it here
+                if (!dragNodesAllowed.length) {
+                    dragNodesAllowed = this._dragNodes;
+                }
                 this.beginUpdate();
-                this.removeNode(this._dragNode);
+                for (var i = 0; i < dragNodesAllowed.length; ++i) {
+                    this.removeNode(dragNodesAllowed[i]);
+                }
                 if (node !== this._root) {
                     if (this._dropCallback) {
-                        this._dropCallback(node.parent, node, node.previous ? node.previous : null, this._dragNode);
+                        this._dropCallback(node.parent, node, node.previous ? node.previous : null, dragNodesAllowed);
                     }
-                    this.insertNodeBefore(node, this._dragNode);
+                    for (var i = 0; i < dragNodesAllowed.length; ++i) {
+                        this.insertNodeBefore(node, dragNodesAllowed[i]);
+                    }
                 } else {
                     // this._root node we may have only if release mouse on the free zone below all nodes,
                     // so just append it
                     if (this._dropCallback) {
-                        this._dropCallback(this._root, null, null, this._dragNode);
+                        this._dropCallback(this._root, null, null, dragNodesAllowed);
                     }
-                    this.appendNode(node, this._dragNode);
+                    for (var i = 0; i < dragNodesAllowed.length; ++i) {
+                        this.appendNode(node, dragNodesAllowed[i]);
+                    }
                 }
-                this._dragNode = null;
+                this._dragNodes = null;
                 this.endUpdate();
-            } else if (this._dropLowerAllowed(node, offsetY)) {
-                this.beginUpdate();
-                this.removeNode(this._dragNode);
-                if (this._dropCallback) {
-                    this._dropCallback(node.parent, node.next ? node.next : null, node, this._dragNode);
+            } else if (this._dropLowerAllowed(node, offsetY, dragNodesAllowed)) {
+                if (!dragNodesAllowed.length) {
+                    dragNodesAllowed = this._dragNodes;
                 }
-                this.insertNodeAfter(node, this._dragNode);
-                this._dragNode = null;
-                this.endUpdate();
-            } else if (this._dropInsideAllowed(node)) {
                 this.beginUpdate();
-                this.removeNode(this._dragNode);
+                for (var i = 0; i < dragNodesAllowed.length; ++i) {
+                    this.removeNode(dragNodesAllowed[i]);
+                }
                 if (this._dropCallback) {
-                    this._dropCallback(node, null, null, this._dragNode);
+                    this._dropCallback(node.parent, node.next ? node.next : null, node, dragNodesAllowed);
+                }
+                for (var i = dragNodesAllowed.length; i > 0; --i) {
+                    this.insertNodeAfter(node, dragNodesAllowed[i-1]);
+                }
+                this._dragNodes = null;
+                this.endUpdate();
+            } else if (this._dropInsideAllowed(node, dragNodesAllowed)) {
+                if (!dragNodesAllowed.length) {
+                    dragNodesAllowed = this._dragNodes;
+                }
+                this.beginUpdate();
+                for (var i = 0; i < dragNodesAllowed.length; ++i) {
+                    this.removeNode(dragNodesAllowed[i]);
+                }
+                if (this._dropCallback) {
+                    this._dropCallback(node, null, null, dragNodesAllowed);
                 }
                 if (this._putLastChildWhenInside) {
-                    this.appendNode(node, this._dragNode);
+                    for (var i = 0; i < dragNodesAllowed.length; ++i) {
+                        this.appendNode(node, dragNodesAllowed[i]);
+                    }
                 } else {
-                    this.prependNode(node, this._dragNode);
+                    for (var i = dragNodesAllowed.length; i > 0; --i) {
+                        this.prependNode(node, dragNodesAllowed[i-1]);
+                    }
                 }
-                this._dragNode = null;
+                this._dragNodes = null;
                 this.endUpdate();
             }
         }
 
+        this._dragNodes = null;
         this._aScroll.disableAScroll();
         return false;
     };
 
     VTree.prototype._dropHereAllowed = function (node) {
-        return this._dragNode && this._dragNode !== node && !this._nodeHasSomeParent(node, this._dragNode);
-    };
-
-    VTree.prototype._dropUpperAllowed = function (node, offsetY) {
-        var res = offsetY <= this._freeHeight && node !== this._dragNode.next;
-        if (res && this._dropAllowedCallback) {
-            res = node !== this._root && this._dropAllowedCallback(node.parent, node, node.previous ? node.previous : null, this._dragNode) ||
-            node === this._root && this._dropInsideAllowed(node);
+        var res = this._dragNodes && this._dragNodes.length;
+        for (var i = 0; res && i < this._dragNodes.length; ++i) {
+            var dragNode = this._dragNodes[i];
+            res = dragNode !== node && !this._nodeHasSomeParent(node, dragNode);
         }
         return res;
     };
 
-    VTree.prototype._dropLowerAllowed = function (node, offsetY) {
+    VTree.prototype._dropUpperAllowed = function (node, offsetY, dragNodesAllowed) {
+        var res = offsetY <= this._freeHeight && (this._dragNodes.length > 1 || node !== this._dragNodes[0].next);
+        if (res && this._dropAllowedCallback) {
+            res = node !== this._root &&
+                this._dropAllowedCallback(node.parent, node, node.previous ? node.previous : null, this._dragNodes, dragNodesAllowed) ||
+                node === this._root && this._dropInsideAllowed(node, dragNodesAllowed);
+        }
+        return res;
+    };
+
+    VTree.prototype._dropLowerAllowed = function (node, offsetY, dragNodesAllowed) {
         var res = offsetY >= this._rowHeight - this._freeHeight && !node.expanded
-            && node !== this._root && this._dragNode !== node.next;
+            && node !== this._root && (this._dragNodes.length > 1 || this._dragNodes[0] !== node.next);
 
         if (res && this._dropAllowedCallback) {
-            res = this._dropAllowedCallback(node.parent, node.next ? node.next : null, node, this._dragNode);
+            res = this._dropAllowedCallback(node.parent, node.next ? node.next : null, node, this._dragNodes, dragNodesAllowed);
         }
         return res;
     };
 
-    VTree.prototype._dropInsideAllowed = function (node) {
-        var res = !(this._dragNode.parent === node && node.lastChild === this._dragNode);
+    VTree.prototype._dropInsideAllowed = function (node, dragNodesAllowed) {
+        var res = this._dragNodes.length > 1 || !(this._dragNodes[0].parent === node &&
+            (this._putLastChildWhenInside && node.lastChild === this._dragNodes[0] ||
+                !this._putLastChildWhenInside && node.firstChild === this._dragNodes[0]));
         if (res && this._dropAllowedCallback) {
-            res = this._dropAllowedCallback(node, null, null, this._dragNode);
+            res = this._dropAllowedCallback(node, null, null, this._dragNodes, dragNodesAllowed);
         }
         return res;
     };
