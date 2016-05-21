@@ -119,6 +119,7 @@
 
         var scrollTop = this._container.scrollTop;
         if (!this._lastRenderScrollTop || Math.abs(scrollTop - this._lastRenderScrollTop) > this._scrollCacheSize) {
+            this._updateVisibleRows(); // <= sometimes first scroll will have outdated number of visible rows
             this._render();
             this._lastRenderScrollTop = scrollTop;
         }
@@ -163,8 +164,17 @@
         var nodesToClean = this._container.querySelectorAll('div[data-clean]');
         for (var i = 0, l = nodesToClean.length; i < l; i++) {
             this._container.removeChild(nodesToClean[i]);
+            this._jqueryCleanup(nodesToClean[i]);
         }
     };
+
+    VList.prototype._jqueryCleanup = function (node) {
+        if (window.hasOwnProperty("jQuery")
+            && jQuery.hasOwnProperty("cleanData")
+            && jQuery.hasOwnProperty("merge")) {
+            jQuery.cleanData(jQuery.merge(node.querySelectorAll('*'), node));
+        }
+    }
 
     _.VList = VList;
 })(this);
