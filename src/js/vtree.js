@@ -443,6 +443,7 @@
     VTree.prototype._putLastChildWhenInside = false;
 
     VTree.prototype._invalidationRequestTimerId = null;
+    VTree.prototype._focusTimerId = null;
 
     VTree.prototype._updateMarksTimerId = null;
 
@@ -479,6 +480,45 @@
         this._initComputedVals();
         this.requestInvalidation(true);
     };
+
+    VTree.prototype.expandAndFocus = function (node) {
+        var index = 0;
+
+        var currentNode = node;
+        while (currentNode.parent && currentNode.parent !== this._root) {
+            currentNode = currentNode.parent;
+            currentNode.expanded = true;
+        }
+
+        if (this._focusTimerId) {
+            return false;
+        }
+
+        this._root.acceptChildren(function (n) {
+            if (n === node) {
+                return false;
+            }
+
+            index++;
+            return true;
+        }, true);
+       
+        // this._nextScroll = index * this._rowHeight;
+        this._requestViewportClean();
+        var scrollTop = index * this._rowHeight;
+        if (!this._lastRenderScrollTop || Math.abs(scrollTop - this._lastRenderScrollTop) > this._scrollCacheSize) {
+            this._updateVisibleRows(); // <= sometimes first scroll will have outdated number of visible rows
+            this._render();
+            this._lastRenderScrollTop = scrollTop;
+        }
+
+        this._focusTimerId = setTimeout(function () {
+            this._container.scrollTop = scrollTop;
+            this._focusTimerId = null;
+        }.bind(this, 50));
+
+        return true;
+    }
 
     VTree.prototype.requestInvalidation = function (immediate) {
         if (immediate) {
@@ -624,7 +664,7 @@
     };
 
     /** override */
-    VList.prototype._updateScroller = function () {
+    VTree.prototype._updateScroller = function () {
         this._scroller.style.height = (this._rowCount * this._rowHeight + this._freeHeight).toString() + 'px';
     };
 
