@@ -504,13 +504,8 @@
         }, true);
        
         // this._nextScroll = index * this._rowHeight;
-        this._requestViewportClean();
         var scrollTop = index * this._rowHeight;
-        if (!this._lastRenderScrollTop || Math.abs(scrollTop - this._lastRenderScrollTop) > this._scrollCacheSize) {
-            this._updateVisibleRows(); // <= sometimes first scroll will have outdated number of visible rows
-            this._render();
-            this._lastRenderScrollTop = scrollTop;
-        }
+        this.invalidate();
 
         this._focusTimerId = setTimeout(function () {
             this._container.scrollTop = scrollTop;
