@@ -503,14 +503,19 @@
             return true;
         }, true);
        
-        // this._nextScroll = index * this._rowHeight;
-        var scrollTop = index * this._rowHeight;
         this.invalidate();
 
-        this._focusTimerId = setTimeout(function () {
-            this._container.scrollTop = scrollTop;
-            this._focusTimerId = null;
-        }.bind(this, 50));
+        var scrollTop = index * this._rowHeight;
+        var currentScrollTop = this._container.scrollTop;
+        
+        if (currentScrollTop > scrollTop ||
+            (scrollTop - currentScrollTop) >= this._rowHeight*this._visibleRows) {
+
+            this._focusTimerId = setTimeout(function () {
+                this._container.scrollTop = scrollTop;
+                this._focusTimerId = null;
+            }.bind(this, 50));
+        }
 
         return true;
     }
